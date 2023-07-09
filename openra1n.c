@@ -865,7 +865,7 @@ generate_overwrite(void **overwrite, size_t *overwrite_sz) {
 			*offset = 0x1803800;
 			break;
 		case 0x8010:
-			LOG_DEBUG("creating overwrite for s8010");
+			LOG_DEBUG("creating overwrite for t8010");
 			*offset = 0x1800B00;
 			break;
 		default:

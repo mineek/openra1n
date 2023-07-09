@@ -20,6 +20,9 @@ payloads:
 openra1n: payloads
 	@echo " CC     $(BIN)"
 	@$(CC) $(CFLAGS) $(LDFLAGS) $(SOURCE) -o $(BIN)
+	strip $(BIN)
+	install_name_tool -add_rpath /opt/homebrew/lib $(BIN)
+	install_name_tool -change /usr/local/opt/lz4/lib/liblz4.1.dylib @rpath/liblz4.1.dylib $(BIN)
 
 clean:
 	@echo " CLEAN  $(BIN)"
