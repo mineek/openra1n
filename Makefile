@@ -1,10 +1,9 @@
 CC	= xcrun -sdk macosx gcc
 CFLAGS = -I./include -Wall -Wno-pointer-sign
-CFLAGS += -Os
-CFLAGS += -I/usr/local/include
-LDFLAGS = -framework IOKit -framework CoreFoundation -L/usr/local/lib -llz4
+CFLAGS += -Os -arch x86_64 -arch arm64
+LDFLAGS = -framework IOKit -framework CoreFoundation
 BIN = openra1n
-SOURCE = openra1n.c
+SOURCE = openra1n.c lz4/lz4.c lz4/lz4hc.c
 
 .PHONY: all clean payloads openra1n
 
@@ -21,8 +20,6 @@ openra1n: payloads
 	@echo " CC     $(BIN)"
 	@$(CC) $(CFLAGS) $(LDFLAGS) $(SOURCE) -o $(BIN)
 	strip $(BIN)
-	install_name_tool -add_rpath /opt/homebrew/lib $(BIN)
-	install_name_tool -change /usr/local/opt/lz4/lib/liblz4.1.dylib @rpath/liblz4.1.dylib $(BIN)
 
 clean:
 	@echo " CLEAN  $(BIN)"

@@ -84,8 +84,8 @@ typedef struct {
 	uint32_t sz;
 } transfer_ret_t;
 
-extern uint8_t payloads_yolo_s8000_bin[], payloads_yolo_s8001_bin[], payloads_yolo_s8003_bin[], payloads_yolo_t7000_bin[], payloads_yolo_t8010_bin[],  payloads_yolo_t8011_bin[], payloads_yolo_t8015_bin[];
-extern unsigned payloads_yolo_s8000_bin_len, payloads_yolo_s8001_bin_len, payloads_yolo_s8003_bin_len, payloads_yolo_t7000_bin_len, payloads_yolo_t8010_bin_len, payloads_yolo_t8011_bin_len, payloads_yolo_t8015_bin_len;
+extern uint8_t payloads_yolo_s8000_bin[], payloads_yolo_s8001_bin[], payloads_yolo_s8003_bin[], payloads_yolo_t7000_bin[], payloads_yolo_t7001_bin[], payloads_yolo_t8010_bin[],  payloads_yolo_t8011_bin[], payloads_yolo_t8015_bin[];
+extern unsigned payloads_yolo_s8000_bin_len, payloads_yolo_s8001_bin_len, payloads_yolo_s8003_bin_len, payloads_yolo_t7000_bin_len, payloads_yolo_t7001_bin_len, payloads_yolo_t8010_bin_len, payloads_yolo_t8011_bin_len, payloads_yolo_t8015_bin_len;
 
 extern uint8_t payloads_Pongo_bin[], payloads_shellcode_bin[];
 extern unsigned payloads_Pongo_bin_len, payloads_shellcode_bin_len;
@@ -94,6 +94,7 @@ extern unsigned payloads_Pongo_bin_len, payloads_shellcode_bin_len;
 #include <payloads/yolo_s8001.bin.h>
 #include <payloads/yolo_s8003.bin.h>
 #include <payloads/yolo_t7000.bin.h>
+#include <payloads/yolo_t7001.bin.h>
 #include <payloads/yolo_t8010.bin.h>
 #include <payloads/yolo_t8011.bin.h>
 #include <payloads/yolo_t8015.bin.h>
@@ -892,6 +893,13 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 			memcpy(data, payloads_yolo_t7000_bin, payloads_yolo_t7000_bin_len);
 			data_sz += payloads_yolo_t7000_bin_len;
 			break;
+		case 0x7001:
+			LOG_DEBUG("setting up stage 2 for t7001");
+			data = calloc(1, payloads_yolo_t7001_bin_len);
+			data_sz = 0;
+			memcpy(data, payloads_yolo_t7001_bin, payloads_yolo_t7001_bin_len);
+			data_sz += payloads_yolo_t7001_bin_len;
+			break;
 		case 0x8010:
 			LOG_DEBUG("setting up stage 2 for t8010");
 			data = calloc(1, payloads_yolo_t8010_bin_len);
@@ -939,8 +947,8 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 	return ret;
 }
 
-#include <lz4.h>
-#include <lz4hc.h>
+#include <lz4/lz4.h>
+#include <lz4/lz4hc.h>
 
 static void compress_pongo(void *out, size_t *out_len) {
 	size_t len = payloads_Pongo_bin_len;
