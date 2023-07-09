@@ -1,5 +1,5 @@
 CC	= xcrun -sdk macosx gcc
-CFLAGS = -I./include -Wall
+CFLAGS = -I./include -Wall -Wno-pointer-sign
 CFLAGS += -Os
 CFLAGS += -I/usr/local/include
 LDFLAGS = -framework IOKit -framework CoreFoundation -L/usr/local/lib -llz4
