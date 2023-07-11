@@ -994,7 +994,7 @@ static void checkm8_boot_pongo(usb_handle_t *handle) {
             if(transfer_ret.sz != size || transfer_ret.ret != USB_TRANSFER_OK)
             {
 				LOG_DEBUG("retrying at len = %zu", len);
-                usleep(1000);
+                sleep_ms(100);
                 goto retry;
             }
             len += size;
@@ -1057,7 +1057,7 @@ int main(int argc, char **argv) {
 	usb_abort_timeout_min = 0;
 	LOG_INFO("Waiting for DFU mode device");
 	gaster_checkm8(&handle);
-	sleep(3);
+	sleep_ms(3000);
 	checkm8_boot_pongo(&handle);
 	return ret;
 }
